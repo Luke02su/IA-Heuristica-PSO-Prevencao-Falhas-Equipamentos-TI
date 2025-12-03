@@ -1,87 +1,144 @@
 import pandas as pd
 import numpy as np
 import os
+from sklearn.preprocessing import MinMaxScaler
 
 class DataLoader:
     """
-    Classe responsável por carregar e pré-processar o arquivo de dados CSV
-    'tabelaEnvios.csv' para o modelo de previsão de falhas.
+    Carrega, pré-processa e aplica Engenharia de Features de Frequência e Temporal.
+    A variável 'Falha' é definida por palavras-chave no Motivo.
     """
+
     def __init__(self, path):
         self.path = path
-        
-        # Palavras-chave para definir se o motivo é uma falha
+        self.target_coluna = 'Falha'
+
         self.falha_keywords = [
-            'substituição', 'troca', 'queimou', 'danificado', 
-            'problema', 'defeito', 'listra', 'trincou', 'não está segurando carga'
+            'substituição', 'substituir', 'troca', 'trocar', 'queimou',
+            'devolução', 'devolver', 'retornar', 'danificado', 'problema',
+            'defeito', 'listra', 'trincou', 'não está segurando carga'
         ]
 
-        # Colunas a serem removidas por serem apenas identificadores
         self.colunas_para_remover = [
-            'ID Envio', 'Nº Série Equip.', 'Placa', 'Usuário Envio'
+            'ID Envio', 'Placa', 'Usuário Envio'
         ]
 
-        # Colunas categóricas para aplicar One-Hot Encoding
         self.colunas_categoricas = [
             'Tipo', 'Modelo', 'Motivo', 'Origem', 'Loja Destino (ID)'
         ]
 
     def _load_data(self):
-        """Carrega o CSV tratando possíveis erros de codificação e existência."""
+        """Carrega o CSV com correção de compatibilidade e tratamento de erros de linha."""
         if not os.path.exists(self.path):
             raise FileNotFoundError(f"Arquivo CSV não encontrado: {self.path}")
 
         try:
-            df = pd.read_csv(self.path, encoding='utf-8')
-        except UnicodeDecodeError:
-            df = pd.read_csv(self.path, encoding='latin1')
-            
+            # Tenta sintaxe moderna
+            df = pd.read_csv(self.path, encoding='utf-8', on_bad_lines='skip')
+        except (TypeError, UnicodeDecodeError):
+            try:
+                # Tenta sintaxe antiga
+                df = pd.read_csv(self.path, encoding='utf-8', error_bad_lines=False)
+            except Exception:
+                # Tenta sintaxe antiga com outra codificação
+                df = pd.read_csv(self.path, encoding='latin1', error_bad_lines=False)
+
         if df.empty:
-            raise ValueError("O arquivo CSV está vazio.")
-            
+            raise ValueError("O arquivo CSV está vazio ou todas as linhas foram puladas devido a erros.")
+
         return df
 
     def _create_target_and_preprocess(self, df):
-        """Cria a variável target 'Falha' e executa o pré-processamento das features."""
-        
-        # 1. CRIAÇÃO DA VARIÁVEL ALVO (Y) - Coluna 'Falha'
+        """Cria as features de Falha, Frequência, Intervalo Temporal e pré-processa as colunas."""
+
+        # 1. CRIAÇÃO DA VARIÁVEL ALVO (Y) - Coluna 'Falha' (via Keywords)
         keywords_regex = '|'.join(self.falha_keywords)
         df['Falha'] = df['Motivo'].astype(str).str.lower().str.contains(
             keywords_regex, na=False
         ).astype(int)
-        
-        # 2. LIMPEZA INICIAL
+
+        # 2. CONVERSÃO DA DATA
+        if 'Data Envio' in df.columns:
+            df['Data Envio'] = pd.to_datetime(df['Data Envio'], errors='coerce')
+            df.dropna(subset=['Data Envio'], inplace=True) # Remove linhas com data inválida (poucas)
+
+        # 3. ENGENHARIA DA FEATURE DE FREQUÊNCIA DE ENVIO (Reenvio)
+        if 'Nº Série Equip.' in df.columns:
+            contagem_envios = df.groupby('Nº Série Equip.').size().reset_index(name='Frequencia_Envio')
+            df = pd.merge(df, contagem_envios, on='Nº Série Equip.', how='left')
+
+        # 4. ENGENHARIA DA FEATURE DE INTERVALO DE DIAS ENTRE REENVIOS (CRÍTICO!)
+        if 'Data Envio' in df.columns and 'Nº Série Equip.' in df.columns:
+            # Ordena para garantir que o cálculo do delta seja sequencial
+            df = df.sort_values(by=['Nº Série Equip.', 'Data Envio'])
+
+            # Calcula a data de envio ANTERIOR
+            df['Data_Envio_Anterior'] = df.groupby('Nº Série Equip.')['Data Envio'].shift(1)
+
+            # Calcula a diferença em dias
+            df['Intervalo_Dias_Reenvio'] = (df['Data Envio'] - df['Data_Envio_Anterior']).dt.days
+
+            # Remoção temporária de colunas de data/referência para o próximo passo
+            df = df.drop(columns=['Data_Envio_Anterior'])
+
+            # Features de Data baseadas no envio atual
+            df['Dia_da_Semana'] = df['Data Envio'].dt.dayofweek.fillna(0).astype(int)
+            df['Mes'] = df['Data Envio'].dt.month.fillna(0).astype(int)
+            df = df.drop(columns=['Data Envio'])
+        else:
+             # Se não houver data, cria as colunas como 0 para manter a consistência do modelo
+             df['Intervalo_Dias_Reenvio'] = 0 
+             df['Dia_da_Semana'] = 0
+             df['Mes'] = 0
+
+
+        # 5. LIMPEZA E REMOÇÃO DE COLUNAS DE ID
+        colunas_a_remover = self.colunas_para_remover + ['Nº Série Equip.'] 
+        colunas_para_remover_temp = [col for col in colunas_a_remover if col in df.columns]
+
         df_processado = df.drop(
-            columns=[col for col in self.colunas_para_remover if col in df.columns], 
+            columns=colunas_para_remover_temp,
             errors='ignore'
         )
 
-        # 3. ENGENHARIA DE FEATURES DE DATA
-        if 'Data Envio' in df_processado.columns:
-            df_processado['Data Envio'] = pd.to_datetime(df_processado['Data Envio'], errors='coerce')
-            df_processado['Dia_da_Semana'] = df_processado['Data Envio'].dt.dayofweek.fillna(-1).astype(int)
-            df_processado['Mes'] = df_processado['Data Envio'].dt.month.fillna(-1).astype(int)
-            df_processado = df_processado.drop(columns=['Data Envio'])
-
-        # 4. ONE-HOT ENCODING
+        # 6. ONE-HOT ENCODING (Categoricas)
         cols_ohe = [col for col in self.colunas_categoricas if col in df_processado.columns]
         df_final = pd.get_dummies(df_processado, columns=cols_ohe, dummy_na=False)
 
-        # 5. GARANTE QUE TODOS OS DADOS SÃO NUMÉRICOS E TRATA RESTANTES NANs
+        # 7. GARANTE QUE TODOS OS DADOS SÃO NUMÉRICOS E TRATA RESTANTES NANs
         df_final.fillna(0, inplace=True)
-        
+
         return df_final
 
+
     def load(self):
-        """Carrega, pré-processa, e separa features (X) e labels (y) como arrays NumPy."""
+        """Carrega, pré-processa, aplica escalonamento e retorna X, y, feature_names e colunas de contexto."""
         df_raw = self._load_data()
         self.df_processed = self._create_target_and_preprocess(df_raw.copy())
-        
-        if 'Falha' not in self.df_processed.columns:
+
+        if self.target_coluna not in self.df_processed.columns:
             raise ValueError("Erro de pré-processamento: A coluna 'Falha' (target) não foi criada.")
 
-        # Separa o target (y) das features (X)
-        y = self.df_processed['Falha'].values
-        X = self.df_processed.drop(columns=['Falha']).values
+        # --- CAPTURANDO COLUNAS DE CONTEXTO ---
+        context_df = df_raw.iloc[self.df_processed.index].copy()
 
-        return X, y
+        if 'Nº Série Equip.' in context_df.columns and 'Motivo' in context_df.columns:
+             # Manter a coluna Nº Série Equip. no contexto raw para o output
+             colunas_contexto = context_df[['Nº Série Equip.', 'Motivo']].values
+        else:
+             raise ValueError("Colunas 'Nº Série Equip.' ou 'Motivo' não encontradas no arquivo raw.")
+        # ----------------------------------------
+
+        y = self.df_processed[self.target_coluna].values
+
+        # Filtra apenas colunas numéricas (int, float) para garantir que não haja strings
+        df_features = self.df_processed.drop(columns=[self.target_coluna]).select_dtypes(include=[np.number])
+
+        feature_names = df_features.columns.tolist()
+        X = df_features.values
+
+        # MUDANÇA CRÍTICA: Escalonamento MinMax para normalizar o peso das features numéricas (Frequência e Intervalo)
+        scaler = MinMaxScaler()
+        X = scaler.fit_transform(X)
+
+        return X, y, feature_names, colunas_contexto
