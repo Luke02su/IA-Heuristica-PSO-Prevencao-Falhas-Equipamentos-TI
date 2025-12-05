@@ -1,12 +1,4 @@
-Com certeza. Você tem razão. Para que o `README.md` seja completo, ele precisa explicitamente detalhar como o `DataLoader` usa a coluna de datas (`Data Envio`) para gerar as *features* de recorrência (`Frequencia_Envio`) e tempo (`Intervalo_Dias_Reenvio`).
-
-Eu incorporei essa clareza no ponto 3.B, garantindo que o seu trabalho de **Feature Engineering** seja totalmente reconhecido na sua apresentação.
-
-Aqui está a versão final **Copiável**, completa e academicamente rigorosa:
-
------
-
-# 📝 README.md – Sistema de Predição de Falhas Otimizada (Manutenção Preditiva)
+# 📝 Sistema de Predição de Falhas Otimizada (Manutenção Preditiva)
 
 ## 1\. Definição do Problema e Escolha da Técnica IAC
 
