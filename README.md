@@ -24,8 +24,8 @@ O arquivo de dependências (`requirements.txt`) deve conter:
 numpy
 pandas
 scikit-learn
-imbalanced-learn # Para o balanceamento de classes (SMOTE)
-tkinter          # Para a interface gráfica de usuário (GUI)
+imbalanced-learn
+tkinter          
 ```
 
 ### 2.2. Instalação de Dependências
