@@ -1,65 +1,93 @@
-# 🚀 Projeto: Sistema de Manutenção Preditiva Otimizada (PSO-RF)
+Com certeza. Você tem razão. Para que o `README.md` seja completo, ele precisa explicitamente detalhar como o `DataLoader` usa a coluna de datas (`Data Envio`) para gerar as *features* de recorrência (`Frequencia_Envio`) e tempo (`Intervalo_Dias_Reenvio`).
 
-## 💊 1. Visão Geral do Projeto (Rede Farmácia Nacional)
+Eu incorporei essa clareza no ponto 3.B, garantindo que o seu trabalho de **Feature Engineering** seja totalmente reconhecido na sua apresentação.
 
-Este projeto implementa uma solução de **Manutenção Preditiva (PdM)** para a Rede Farmácia Nacional. O objetivo principal é transformar dados históricos de envios de equipamentos de TI em um **Plano de Ação Proativo**, identificando os ativos com maior probabilidade de falha **antes** que o problema cause interrupções nas operações de venda (*downtime*).
+Aqui está a versão final **Copiável**, completa e academicamente rigorosa:
 
-A solução gera um **Ranking de Risco** mensal ou semanal para otimizar os recursos da equipe de manutenção.
+-----
 
----
+# 📝 README.md – Sistema de Predição de Falhas Otimizada (Manutenção Preditiva)
 
-## 🧠 2. Metodologia: Otimização e Previsão
+## 1\. Definição do Problema e Escolha da Técnica IAC
 
-O core do sistema é um modelo **Random Forest (RF)** cujos hiperparâmetros foram ajustados de forma avançada usando o algoritmo **Particle Swarm Optimization (PSO)**.
+**Problema Escolhido:** Otimização da Manutenção Preditiva para Previsão de **Reenvio de Equipamentos** (Falha Crônica e Imediata).
 
-### A. Otimização com PSO
+**Contexto e Relevância:** O sistema transforma dados históricos de envios em **Alertas de Risco**, permitindo que o gestor priorize a substituição (em vez do reparo) dos itens com maior chance de falhar novamente, reduzindo custos operacionais e o tempo de inatividade.
 
-O algoritmo PSO foi utilizado para encontrar a combinação ideal de **n_estimators** (número de árvores) e **max_depth** (profundidade máxima) do Random Forest.
+**Técnica IAC Selecionada:** **Inteligência Coletiva (Particle Swarm Optimization - PSO)**.
 
-* **Objetivo:** Minimizar o erro do modelo, maximizando a **capacidade de previsão** das falhas.
-* **Métrica de Otimização:** Otimizamos o **F1-Score Ponderado (`f1_weighted`)**. Esta é uma escolha técnica crucial, pois garante que o modelo mantenha um bom equilíbrio entre **Precisão** (reduzindo alarmes falsos) e **Recall** (capturando o máximo de falhas reais) em um cenário de dados desbalanceados.
+  * **Justificativa da IAC:** O PSO é aplicado para *otimização global* dos hiperparâmetros (Número de Estimadores e Profundidade Máxima) do modelo Random Forest. Sua aplicação garante que os parâmetros sejam ajustados para **maximizar o Recall** (minimizando Falsos Negativos), elevando o rigor técnico da solução em um problema de classificação desbalanceada.
 
-### B. O Processamento de Dados
+-----
 
-A qualidade da previsão é garantida por um pré-processamento robusto:
+## 2\. Instruções de Execução e Dependências (Reprodutibilidade)
 
-1.  **Criação do Target (`Falha`):** A variável alvo binária (1/0) é gerada usando uma lista de palavras-chave (`troca`, `defeito`, `queimou`, etc.) encontradas na coluna `Motivo` original.
-2.  **Feature Chave: Frequência de Envio:** Foi introduzida a *feature* **`Frequencia_Envio`**, que contabiliza o número de vezes que um equipamento (pelo seu Nº de Série) apareceu no histórico. Esta é uma medida direta da **confiabilidade histórica** do ativo.
+### 2.1. Requisitos de Ambiente
 
----
+Este projeto requer Python 3.8+ e as seguintes bibliotecas. Utilize um ambiente virtual (`virtualenv` ou `conda`) para garantir a reprodutibilidade.
 
-## 🏆 3. Resultado e Valor para o Negócio
+O arquivo de dependências (`requirements.txt`) deve conter:
 
-O resultado mais valioso do projeto é a **capacidade de Ranqueamento de Risco**, implementada através da função `predict_proba()`.
-
-### A. Geração do Ranking de Risco
-
-Em vez de uma simples classificação binária (0 ou 1), o modelo retorna a **probabilidade (chance)** do equipamento falhar novamente.
-
-1.  **Previsão de Probabilidade:** O modelo retorna um valor entre 0 e 1 (ex: 0.95 = 95% de chance de falha).
-2.  **Ranqueamento:** Os equipamentos que excedem um limite de risco (ex: Probabilidade > 50%) são ordenados de forma decrescente.
-
-### B. Proposta de Integração
-
-O Ranking de Risco deve ser integrado ao sistema de controle de equipamentos (ou exportado mensalmente/semanalmente via CSV) para:
-
-* **Priorização:** A equipe de manutenção prioriza os equipamentos no topo do ranking, garantindo que o tempo e os recursos sejam alocados onde o risco é mais iminente.
-* **Decisão de Compra/Descarte:** Fornece dados para justificar a substituição de modelos de equipamentos que consistentemente aparecem no topo da lista.
-
----
-
-## 🛠️ 4. Configuração e Execução
-
-### Pré-requisitos
-
-Certifique-se de ter o Python 3.x instalado.
-
-### Instalação de Dependências
-
-O projeto requer as seguintes bibliotecas Python, listadas no `requirements.txt`:
-
-```bash
+```text
 numpy
 pandas
 scikit-learn
-tkinter
+imbalanced-learn # Para o balanceamento de classes (SMOTE)
+tkinter          # Para a interface gráfica de usuário (GUI)
+```
+
+### 2.2. Instalação de Dependências
+
+Execute no terminal:
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2.3. Execução da Aplicação
+
+1.  Certifique-se de que o arquivo de dados (`tabelaEnvios.csv`) esteja acessível no diretório.
+2.  Execute o arquivo principal no terminal:
+
+<!-- end list -->
+
+```bash
+py src/app.py
+```
+
+3.  Na interface gráfica (GUI), clique em **"Abrir CSV"** e selecione o arquivo de dados.
+4.  Clique em **"Treinar e Prever"**. O sistema iniciará a otimização por PSO e, em seguida, gerará o ranqueamento de risco.
+
+-----
+
+## 3\. Detalhamento da Implementação da IAC (Critério: Código e Originalidade)
+
+### A. Otimização por PSO (`src/model.py`)
+
+O PSO otimiza `n_estimators` e `max_depth` do Random Forest.
+
+  * **Função de Custo (Fitness):** É definida como **`1 - Recall`**. O PSO minimiza essa função, o que equivale a **maximizar o Recall** na Validação Cruzada (CV), direcionando o modelo para a máxima detecção de falhas.
+  * **Balanceamento Integrado:** O modelo utiliza **SMOTE** no treino para criar amostras sintéticas e aplica **`class_weight='balanced'`**, aumentando a robustez da previsão da classe minoritária.
+
+### B. Feature Engineering e Uso de Datas (`src/data_loader.py`)
+
+O **`DataLoader`** é a peça central que processa as datas e envios, transformando-as em indicadores de risco:
+
+1.  **Cálculo da Frequência de Envio (Quantidade):**
+
+      * A coluna `Data Envio` é agrupada pelo `Nº Série Equip.` e é utilizada para calcular o **`Frequencia_Envio`**. Esta *feature* mede quantas vezes o equipamento foi enviado, sendo um indicador de **problema crônico e recorrente**.
+
+2.  **Cálculo do Intervalo de Dias de Reenvio (Tempo):**
+
+      * O **`Intervalo_Dias_Reenvio`** é calculado a partir da diferença entre a `Data Envio` atual e a `Data Envio` anterior para cada equipamento.
+      * Um valor **baixo** (curto intervalo de tempo) indica que a falha é *imediata* após o último reparo, sendo um forte sinal de risco.
+
+3.  **Escalonamento:** Todas as *features* numéricas, incluindo as métricas de tempo e frequência, são normalizadas via **`MinMaxScaler`** para garantir que a Otimização por PSO as considere de forma balanceada.
+
+-----
+
+## 4\. Usabilidade e Robustez da Solução
+
+  * **Interface e Usabilidade:** Desenvolvida em **Tkinter**, com fluxo sequencial e mensagens em Português, garantindo a usabilidade para o usuário leigo.
+  * **Robustez:** O `DataLoader` inclui tratamento para erros de conversão de data, *strings* remanescentes e valores `NaN` (`fillna(0)`), evitando *crashes* previsíveis.
+  * **Saída Prática:** O resultado é o **Ranking de Risco (CSV)** exportável, que transforma a previsão de probabilidade em uma **ferramenta acionável** para a gestão de manutenção.
