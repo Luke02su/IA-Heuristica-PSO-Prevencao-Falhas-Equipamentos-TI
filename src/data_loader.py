@@ -1,13 +1,11 @@
 import pandas as pd
 import numpy as np
 import os
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import StandardScaler 
 
 class DataLoader:
-    """
-    Carrega, pré-processa e aplica Engenharia de Features de Frequência e Temporal.
-    A variável 'Falha' é definida por palavras-chave no Motivo.
-    """
+    #Carrega, pré-processa e aplica Engenharia de Features de Frequência e Temporal.
+    # A variável 'Falha' é definida por palavras-chave no Motivo.
 
     def __init__(self, path):
         self.path = path
@@ -16,19 +14,19 @@ class DataLoader:
         self.falha_keywords = [
             'substituição', 'substituir', 'troca', 'trocar', 'queimou',
             'devolução', 'devolver', 'retornar', 'danificado', 'problema',
-            'defeito', 'listra', 'trincou', 'não está segurando carga'
+            'defeito',
         ]
 
         self.colunas_para_remover = [
-            'ID Envio', 'Placa', 'Usuário Envio'
+            'ID Envio', 'Placa', 'Usuário Envio', 'Motivo'
         ]
 
         self.colunas_categoricas = [
-            'Tipo', 'Modelo', 'Motivo', 'Origem', 'Loja Destino (ID)'
+            'Tipo', 'Modelo', 'Origem', 'Loja Destino (ID)'
         ]
 
     def _load_data(self):
-        """Carrega o CSV com correção de compatibilidade e tratamento de erros de linha."""
+        #Carrega o CSV com correção de compatibilidade e tratamento de erros de linha.
         if not os.path.exists(self.path):
             raise FileNotFoundError(f"Arquivo CSV não encontrado: {self.path}")
 
@@ -49,7 +47,7 @@ class DataLoader:
         return df
 
     def _create_target_and_preprocess(self, df):
-        """Cria as features de Falha, Frequência, Intervalo Temporal e pré-processa as colunas."""
+        #Cria as features de Falha, Frequência, Intervalo Temporal e pré-processa as colunas.
 
         # 1. CRIAÇÃO DA VARIÁVEL ALVO (Y) - Coluna 'Falha' (via Keywords)
         keywords_regex = '|'.join(self.falha_keywords)
@@ -67,7 +65,7 @@ class DataLoader:
             contagem_envios = df.groupby('Nº Série Equip.').size().reset_index(name='Frequencia_Envio')
             df = pd.merge(df, contagem_envios, on='Nº Série Equip.', how='left')
 
-        # 4. ENGENHARIA DA FEATURE DE INTERVALO DE DIAS ENTRE REENVIOS (CRÍTICO!)
+        # 4. ENGENHARIA DA FEATURE DE INTERVALO DE DIAS ENTRE REENVIOS ()
         if 'Data Envio' in df.columns and 'Nº Série Equip.' in df.columns:
             # Ordena para garantir que o cálculo do delta seja sequencial
             df = df.sort_values(by=['Nº Série Equip.', 'Data Envio'])
@@ -84,12 +82,19 @@ class DataLoader:
             # Features de Data baseadas no envio atual
             df['Dia_da_Semana'] = df['Data Envio'].dt.dayofweek.fillna(0).astype(int)
             df['Mes'] = df['Data Envio'].dt.month.fillna(0).astype(int)
+            
+            # CRIAÇÃO DO FATOR DE RISCO CRÔNICO AGREGADO
+            # Combina Frequência alta com Intervalo baixo (falha recorrente e rápida)
+            df['Risco_Cronico_Agregado'] = (df['Frequencia_Envio'] / (df['Intervalo_Dias_Reenvio'].fillna(0) + 1))
+            
             df = df.drop(columns=['Data Envio'])
         else:
              # Se não houver data, cria as colunas como 0 para manter a consistência do modelo
+             df['Frequencia_Envio'] = 0
              df['Intervalo_Dias_Reenvio'] = 0 
              df['Dia_da_Semana'] = 0
              df['Mes'] = 0
+             df['Risco_Cronico_Agregado'] = 0
 
 
         # 5. LIMPEZA E REMOÇÃO DE COLUNAS DE ID
@@ -105,7 +110,7 @@ class DataLoader:
         cols_ohe = [col for col in self.colunas_categoricas if col in df_processado.columns]
         df_final = pd.get_dummies(df_processado, columns=cols_ohe, dummy_na=False)
 
-        # 7. GARANTE QUE TODOS OS DADOS SÃO NUMÉRICOS E TRATA RESTANTES NANs
+        # 7. GARANTE QUE TODOS OS DADOS SÃO NUMÉRICOS E TRATA RESTANTES VALORES NULOS
         df_final.fillna(0, inplace=True)
 
         return df_final
@@ -137,8 +142,9 @@ class DataLoader:
         feature_names = df_features.columns.tolist()
         X = df_features.values
 
-        # MUDANÇA CRÍTICA: Escalonamento MinMax para normalizar o peso das features numéricas (Frequência e Intervalo)
-        scaler = MinMaxScaler()
+        # MUDANÇA CRÍTICA: Usa StandardScaler para Padronizar (mitigar picos)
+        # O StandardScaler é melhor para Random Forest do que o MinMax, pois não esmaga outliers.
+        scaler = StandardScaler()
         X = scaler.fit_transform(X)
 
         return X, y, feature_names, colunas_contexto

@@ -3,11 +3,14 @@ import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import cross_val_score, train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-# NOVIDADE: Importar SMOTE
-from imblearn.over_sampling import SMOTE 
-# --- CLASSE PSO (NÃO MUDAR) ---
+from imblearn.over_sampling import SMOTE
+
+SEED = 42
+random.seed(SEED)
+np.random.seed(SEED)
+
 class PSO:
-    # ... (O código da classe PSO permanece exatamente o mesmo) ...
+    #Otimizador por Enxame de Partículas para encontrar os melhores hiperparâmetros.
     def __init__(self, func, dim, bounds, num_particles=10, max_iter=10, w=0.7, c1=1.5, c2=1.5):
         self.func = func
         self.dim = dim
@@ -19,6 +22,9 @@ class PSO:
         self.c2 = c2
 
     def optimize(self):
+        # FIXADO: Garante que as posições e velocidades iniciais sejam sempre as mesmas
+        np.random.seed(42) 
+        
         particles = np.random.uniform(self.bounds[0], self.bounds[1], (self.num_particles, self.dim))
         velocities = np.zeros((self.num_particles, self.dim))
         pbest = particles.copy()
@@ -38,9 +44,9 @@ class PSO:
             gbest = pbest[np.argmin(pbest_scores)].copy()
         return gbest
 
-# --- CLASSE FailurePredictor (Alterações na função train) ---
+# CLASSE FailurePredictor (COM REGULARIZAÇÃO)
 class FailurePredictor:
-    """Treina um modelo Random Forest com otimização de hiperparâmetros (PSO) e balanceamento (SMOTE)."""
+    #Treina um modelo Random Forest com otimização de hiperparâmetros (PSO) e balanceamento (SMOTE).
     def __init__(self):
         self.model = RandomForestClassifier(random_state=42)
         self.feature_importances_ = None
@@ -48,7 +54,7 @@ class FailurePredictor:
 
     def train(self, X, y):
         
-        # 1. FUNÇÃO DE CUSTO: Otimiza o Recall com Ponderação de Classe
+        #FUNÇÃO DE CUSTO: Otimiza o Recall com Ponderação de Classe
         def cost(params):
             try:
                 n_estimators = max(1, int(params[0]))
@@ -59,6 +65,8 @@ class FailurePredictor:
                     max_depth=depth, 
                     random_state=42, 
                     n_jobs=-1,
+                    # AUMENTO DE REGULARIZAÇÃO: Impede folhas com poucas amostras, suavizando a previsão
+                    min_samples_leaf=5,
                     # Ponderação de classe no PSO
                     class_weight='balanced' 
                 )
@@ -71,12 +79,12 @@ class FailurePredictor:
             except Exception as e:
                 return 99999.0
 
-        # 2. EXECUÇÃO DO PSO (Não muda)
-        bounds = [(1.0, 200.0), (10.0, 50.0)] 
+        # 2. EXECUÇÃO DO PSO
+        bounds = [(1.0, 100.0), (10.0, 50.0)] 
         pso_bounds = [np.array([b[0] for b in bounds]), np.array([b[1] for b in bounds])]
 
         print("Iniciando Otimização por PSO...")
-        pso = PSO(func=cost, dim=2, bounds=pso_bounds, max_iter=10, num_particles=10)
+        pso = PSO(func=cost, dim=2, bounds=pso_bounds, max_iter=5, num_particles=8)
         best_params = pso.optimize()
 
         best_n_estimators = max(1, int(best_params[0]))
@@ -85,7 +93,7 @@ class FailurePredictor:
         self.best_params = {'n_estimators': best_n_estimators, 'max_depth': best_max_depth}
         print(f"PSO Otimizou Parâmetros: n_estimators={best_n_estimators}, max_depth={best_max_depth}")
 
-        # 3. TREINAMENTO FINAL COM SMOTE E PARÂMETROS OTIMIZADOS
+        # TREINAMENTO FINAL COM SMOTE E PARÂMETROS OTIMIZADOS
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
         
         # APLICAÇÃO DO SMOTE APENAS NO CONJUNTO DE TREINO!
@@ -93,18 +101,19 @@ class FailurePredictor:
         smote = SMOTE(random_state=42)
         X_train_smote, y_train_smote = smote.fit_resample(X_train, y_train)
         
-        # O Random Forest agora é treinado com os dados balanceados pelo SMOTE
+        # O Random Forest agora é treinado com os dados balanceados e parâmetros regularizados
         self.model = RandomForestClassifier(
             n_estimators=best_n_estimators,
             max_depth=best_max_depth,
             random_state=42,
             n_jobs=-1,
-            # Mantemos class_weight='balanced' para um efeito potencializador (ou você pode testar sem)
+            # REGULARIZAÇÃO APLICADA NO TREINAMENTO FINAL
+            min_samples_leaf=5,
             class_weight='balanced' 
         )
         self.model.fit(X_train_smote, y_train_smote)
 
-        # 4. AVALIAÇÃO DE DESEMPENHO E ARMAZENAMENTO DA IMPORTÂNCIA
+        # AVALIAÇÃO DE DESEMPENHO E ARMAZENAMENTO DA IMPORTÂNCIA
         y_pred = self.model.predict(X_test)
         
         metrics = {
@@ -119,7 +128,5 @@ class FailurePredictor:
         return metrics
 
     def predict(self, X):
-        """
-        Retorna a PROBABILIDADE da classe 1 (Falha) para ranqueamento de risco.
-        """
+        # Retorna a PROBABILIDADE da classe 1 (Falha) para ranqueamento de risco
         return self.model.predict_proba(X)[:, 1]

@@ -17,9 +17,8 @@ except ImportError:
 
 
 class App:
-    """
-    Interface Gráfica Tkinter para previsão de falhas (Ranking de Risco).
-    """
+
+    # Interface Gráfica Tkinter para previsão de falhas (Ranking de Risco)
     def __init__(self, root):
         self.root = root
         self.root.title("Predição de Falhas com PSO - TI")
@@ -48,7 +47,7 @@ class App:
         self.THRESHOLD = 0.5 # Limiar de classificação para Alerta (P > 0.5)
 
     def setup_ui(self):
-        """Cria e organiza os widgets da interface."""
+        # Cria e organiza os widgets da interface.
         
         main_frame = tk.Frame(self.root, padx=20, pady=10)
         main_frame.pack(expand=True, fill='both')
@@ -83,7 +82,7 @@ class App:
         self.export_btn.pack(fill='x', pady=2)
 
     def load_csv(self):
-        """Abre o diálogo de arquivo e carrega os dados (Recebendo 4 variáveis)."""
+        # Abre o diálogo de arquivo e carrega os dados (Recebendo 4 variáveis).
         self.csv_path = filedialog.askopenfilename(
             defaultextension=".csv",
             filetypes=[("Arquivos CSV", "*.csv")]
@@ -115,7 +114,7 @@ class App:
                 self.predict_btn.config(state=tk.DISABLED)
 
     def show_predictions(self, probabilities):
-        """Cria uma nova janela e exibe o Ranking de Risco (Probabilidade > 0.5)."""
+        # Cria uma nova janela e exibe o Ranking de Risco (Probabilidade > 0.5).
         
         # 1. Cria um DataFrame de trabalho a partir das colunas de contexto e probabilidades
         df_ranking = pd.DataFrame(self.context_cols, columns=['Nº Série Equip.', 'Motivo'])
@@ -156,7 +155,7 @@ class App:
             tree.insert('', tk.END, values=(probabilidade_percentual, num_serie, motivo))
 
     def export_alerts(self):
-        """Exporta o Ranking de Risco (Probabilidades > THRESHOLD) para um novo CSV."""
+        # Exporta o Ranking de Risco (Probabilidades > THRESHOLD) para um novo CSV.
         if self.predictions is None or self.context_cols is None:
             messagebox.showwarning("Aviso", "Por favor, treine o modelo primeiro.")
             return
@@ -195,7 +194,7 @@ class App:
 
 
     def run_model(self):
-        """Executa o treinamento do modelo (com PSO) e faz a previsão de PROBABILIDADE."""
+        #Executa o treinamento do modelo (com PSO) e faz a previsão de PROBABILIDADE.
         if self.X is None or self.y is None:
             messagebox.showwarning("Aviso", "Por favor, carregue o arquivo CSV primeiro.")
             return
