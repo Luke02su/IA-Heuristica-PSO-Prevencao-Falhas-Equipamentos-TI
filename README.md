@@ -85,6 +85,7 @@ O `DataLoader` transforma colunas de data e ID em *features* cruciais de risco:
 
   * **Robustez do `DataLoader`:** Inclui tratamento para `NaN` e conversões de *dtype*, prevenindo erros de carregamento.
   * **Métricas Finais de Desempenho:** A otimização atingiu resultados ideais para Manutenção Preditiva:
-      * **Recall: $\approx 0.90$** (Detecção de $90\%$ das falhas reais).
-      * **Precisão: $\approx 0.60$** (Aceitável dada a priorização do Recall).
-      * **F1-Score: $\approx 0.72$** (Bom equilíbrio geral do modelo).
+      * **Acurácia: $\approx 0.74$** (Boa, tendo em vista que não é a principal métrica).
+      * **Recall: $\approx 0.90$** (Detecção de $92\%$ das falhas reais, execelente, sendo principal parâmetro).
+      * **Precisão: $\approx 0.77$** (Bom, dada a priorização do Recall).
+      * **F1-Score: $\approx 0.84$** (Ótimo equilíbrio geral do modelo).
