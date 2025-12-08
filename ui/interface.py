@@ -44,7 +44,7 @@ class App:
         # Variáveis do Modelo
         self.predictions = None # Armazenará probabilidades (float)
         self.metrics = None
-        self.THRESHOLD = 0.7 # Limiar de classificação para Alerta (P > 0.7)
+        self.THRESHOLD = 0.6# Limiar de classificação para Alerta (P > 0.7)
 
     def setup_ui(self):
         # Cria e organiza os widgets da interface.

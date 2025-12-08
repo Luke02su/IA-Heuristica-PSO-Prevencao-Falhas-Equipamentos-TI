@@ -12,9 +12,8 @@ class DataLoader:
         self.target_coluna = 'Falha'
 
         self.falha_keywords = [
-            'substituição', 'substituir', 'troca', 'trocar', 'queimou',
-            'devolução', 'devolver', 'retornar', 'danificado', 'problema',
-            'defeito',
+            'substituição', 'substituir', 'troca', 'trocar', 'reposição', 'repor'
+            'devolução', 'devolver', 'retornar', 'inserção', 'inserir'
         ]
 
         # Mantendo 'Motivo' fora desta lista para ser usado no contexto final
