@@ -44,7 +44,7 @@ class App:
         # Variáveis do Modelo
         self.predictions = None # Armazenará probabilidades (float)
         self.metrics = None
-        self.THRESHOLD = 0.5 # Limiar de classificação para Alerta (P > 0.5)
+        self.THRESHOLD = 0.7 # Limiar de classificação para Alerta (P > 0.7)
 
     def setup_ui(self):
         # Cria e organiza os widgets da interface.
@@ -114,7 +114,7 @@ class App:
                 self.predict_btn.config(state=tk.DISABLED)
 
     def show_predictions(self, probabilities):
-        # Cria uma nova janela e exibe o Ranking de Risco (Probabilidade > 0.5).
+        # Cria uma nova janela e exibe o Ranking de Risco (Probabilidade > 0.7).
         
         # 1. Cria um DataFrame de trabalho a partir das colunas de contexto e probabilidades
         df_ranking = pd.DataFrame(self.context_cols, columns=['Nº Série Equip.', 'Motivo'])
@@ -129,7 +129,7 @@ class App:
         falhas_count = len(df_alerts)
 
         if falhas_count == 0:
-            messagebox.showinfo("Resultado da Previsão", "Nenhuma falha foi predita (probabilidade abaixo do limiar de 50%).")
+            messagebox.showinfo("Resultado da Previsão", "Nenhuma falha foi predita (probabilidade abaixo do limiar de 70%).")
             return
 
         result_window = tk.Toplevel(self.root)

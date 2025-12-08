@@ -107,7 +107,7 @@ class FailurePredictor:
             max_depth=best_max_depth,
             random_state=42,
             n_jobs=-1,
-            # REGULARIZAÇÃO APLICADA NO TREINAMENTO FINAL
+             # AUMENTO DE REGULARIZAÇÃO: Impede folhas com poucas amostras, suavizando a previsão
             min_samples_leaf=5,
             class_weight='balanced' 
         )

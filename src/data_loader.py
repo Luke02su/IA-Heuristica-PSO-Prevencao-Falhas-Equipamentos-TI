@@ -1,10 +1,10 @@
 import pandas as pd
 import numpy as np
 import os
-from sklearn.preprocessing import StandardScaler 
+from sklearn.preprocessing import StandardScaler
 
 class DataLoader:
-    #Carrega, pré-processa e aplica Engenharia de Features de Frequência e Temporal.
+    # Carrega, pré-processa e aplica Engenharia de Features de Frequência e Temporal.
     # A variável 'Falha' é definida por palavras-chave no Motivo.
 
     def __init__(self, path):
@@ -17,8 +17,9 @@ class DataLoader:
             'defeito',
         ]
 
+        # Mantendo 'Motivo' fora desta lista para ser usado no contexto final
         self.colunas_para_remover = [
-            'ID Envio', 'Placa', 'Usuário Envio', 'Motivo'
+            'ID Envio', 'Placa', 'Usuário Envio'
         ]
 
         self.colunas_categoricas = [
@@ -26,7 +27,7 @@ class DataLoader:
         ]
 
     def _load_data(self):
-        #Carrega o CSV com correção de compatibilidade e tratamento de erros de linha.
+        # Carrega o CSV com correção de compatibilidade e tratamento de erros de linha.
         if not os.path.exists(self.path):
             raise FileNotFoundError(f"Arquivo CSV não encontrado: {self.path}")
 
@@ -47,7 +48,7 @@ class DataLoader:
         return df
 
     def _create_target_and_preprocess(self, df):
-        #Cria as features de Falha, Frequência, Intervalo Temporal e pré-processa as colunas.
+        # Cria as features de Falha, Frequência, Intervalo Temporal e pré-processa as colunas.
 
         # 1. CRIAÇÃO DA VARIÁVEL ALVO (Y) - Coluna 'Falha' (via Keywords)
         keywords_regex = '|'.join(self.falha_keywords)
@@ -58,7 +59,7 @@ class DataLoader:
         # 2. CONVERSÃO DA DATA
         if 'Data Envio' in df.columns:
             df['Data Envio'] = pd.to_datetime(df['Data Envio'], errors='coerce')
-            df.dropna(subset=['Data Envio'], inplace=True) # Remove linhas com data inválida (poucas)
+            df.dropna(subset=['Data Envio'], inplace=True) 
 
         # 3. ENGENHARIA DA FEATURE DE FREQUÊNCIA DE ENVIO (Reenvio)
         if 'Nº Série Equip.' in df.columns:
@@ -79,26 +80,25 @@ class DataLoader:
             # Remoção temporária de colunas de data/referência para o próximo passo
             df = df.drop(columns=['Data_Envio_Anterior'])
 
-            # Features de Data baseadas no envio atual
+            # Features de Data baseadas no envio atual (Serão removidas no .load())
             df['Dia_da_Semana'] = df['Data Envio'].dt.dayofweek.fillna(0).astype(int)
             df['Mes'] = df['Data Envio'].dt.month.fillna(0).astype(int)
             
             # CRIAÇÃO DO FATOR DE RISCO CRÔNICO AGREGADO
-            # Combina Frequência alta com Intervalo baixo (falha recorrente e rápida)
             df['Risco_Cronico_Agregado'] = (df['Frequencia_Envio'] / (df['Intervalo_Dias_Reenvio'].fillna(0) + 1))
             
             df = df.drop(columns=['Data Envio'])
         else:
-             # Se não houver data, cria as colunas como 0 para manter a consistência do modelo
-             df['Frequencia_Envio'] = 0
-             df['Intervalo_Dias_Reenvio'] = 0 
-             df['Dia_da_Semana'] = 0
-             df['Mes'] = 0
-             df['Risco_Cronico_Agregado'] = 0
+            # Se não houver data, cria as colunas como 0 para manter a consistência do modelo
+            df['Frequencia_Envio'] = 0
+            df['Intervalo_Dias_Reenvio'] = 0
+            df['Dia_da_Semana'] = 0
+            df['Mes'] = 0
+            df['Risco_Cronico_Agregado'] = 0
 
 
         # 5. LIMPEZA E REMOÇÃO DE COLUNAS DE ID
-        colunas_a_remover = self.colunas_para_remover + ['Nº Série Equip.'] 
+        colunas_a_remover = self.colunas_para_remover + ['Nº Série Equip.']
         colunas_para_remover_temp = [col for col in colunas_a_remover if col in df.columns]
 
         df_processado = df.drop(
@@ -117,7 +117,7 @@ class DataLoader:
 
 
     def load(self):
-        """Carrega, pré-processa, aplica escalonamento e retorna X, y, feature_names e colunas de contexto."""
+        #Carrega, pré-processa, aplica escalonamento e retorna X, y, feature_names e colunas de contexto.
         df_raw = self._load_data()
         self.df_processed = self._create_target_and_preprocess(df_raw.copy())
 
@@ -128,7 +128,6 @@ class DataLoader:
         context_df = df_raw.iloc[self.df_processed.index].copy()
 
         if 'Nº Série Equip.' in context_df.columns and 'Motivo' in context_df.columns:
-             # Manter a coluna Nº Série Equip. no contexto raw para o output
              colunas_contexto = context_df[['Nº Série Equip.', 'Motivo']].values
         else:
              raise ValueError("Colunas 'Nº Série Equip.' ou 'Motivo' não encontradas no arquivo raw.")
@@ -136,14 +135,22 @@ class DataLoader:
 
         y = self.df_processed[self.target_coluna].values
 
+        # --- MUDANÇA CRÍTICA AQUI: REMOÇÃO DA SAZONALIDADE ---
+        colunas_sazonalidade_a_remover = ['Mes', 'Dia_da_Semana']
+        
+        # Cria um DataFrame temporário sem o target e as colunas de sazonalidade
+        df_temp_features = self.df_processed.drop(
+            columns=[self.target_coluna] + colunas_sazonalidade_a_remover, errors='ignore'
+        )
+
         # Filtra apenas colunas numéricas (int, float) para garantir que não haja strings
-        df_features = self.df_processed.drop(columns=[self.target_coluna]).select_dtypes(include=[np.number])
+        # O resultado NÃO conterá 'Mes' e 'Dia_da_Semana'
+        df_features = df_temp_features.select_dtypes(include=[np.number])
 
         feature_names = df_features.columns.tolist()
         X = df_features.values
 
-        # MUDANÇA CRÍTICA: Usa StandardScaler para Padronizar (mitigar picos)
-        # O StandardScaler é melhor para Random Forest do que o MinMax, pois não esmaga outliers.
+        # Usa StandardScaler para Padronizar (mitigar picos)
         scaler = StandardScaler()
         X = scaler.fit_transform(X)
 
